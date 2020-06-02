@@ -47,7 +47,7 @@ public class JSE3DServer {
 		CLASS_OBJ.start(port, sceneID);
 	}
 	public void start(int port, int sceneID) {
-		File sceneFile = new File("scenes/scn" + sceneID + ".jse3");
+		File sceneFile = new File("scenes/scn" + sceneID + ".jscn");
 		if (sceneFile.exists()) {
 			try {
 				scene = JSE3DSerializer.loadScene(sceneFile);
@@ -283,7 +283,7 @@ public class JSE3DServer {
 		public void run() {
 			while (!stop) {
 				try {
-					JSE3DSerializer.saveScene(new File("scenes/scn" +sceneID + ".jse3"), scene);
+					JSE3DSerializer.saveScene(new File("scenes/scn" +sceneID + ".jscn"), scene);
 				} catch (IOException ex) {
 					handleException(ex);
 				}
