@@ -39,12 +39,18 @@ public class JSE3DServer {
 				System.out.println("Incorrectly formatted scene ID. Defaulting to 0...");
 				sceneID = 0;
 			}
-		} else {
+		} else if (args.length == 0) {
 			System.out.println("Defaulting port to 5107...");
 			System.out.println("Defaulting scene ID to 0...");
+		} else {
+			printUsage();
 		}
 		System.out.println("Starting jse3d server on [127.0.0.1:" + port + "].");
 		CLASS_OBJ.start(port, sceneID);
+	}
+	private static void printUsage() {
+		System.out.println("Usage: java JSE3DServer port scene_id");
+		System.exit(1);
 	}
 	public void start(int port, int sceneID) {
 		File sceneFile = new File("scenes/scn" + sceneID + ".jscn");
@@ -149,7 +155,7 @@ public class JSE3DServer {
 				ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
 				username = reader.readLine();
 				String version = reader.readLine();
-				if (!version.equals(JSE3DServerConst.VERSION)) {
+				if (!version.equals(JSE3DServerConst.API_VERSION)) {
 					socket.close();
 					System.out.println("[Server thread: " + Thread.currentThread().getName() + "]: Rejected incoming user " + username + " with client ID " + clientID + " as the client version is not equal to the server version.");
 				}
