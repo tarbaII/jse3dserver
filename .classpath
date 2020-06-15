@@ -2,6 +2,10 @@
 <classpath>
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
-	<classpathentry kind="lib" path="X:/Libraries/Downloads/jse3d1.7.1.jar"/>
+	<classpathentry kind="lib" path="X:/Libraries/Downloads/jse3d1.8.jar"/>
+	<classpathentry kind="lib" path="X:/Libraries/Downloads/bcel-6.5.0.jar"/>
+	<classpathentry kind="lib" path="X:/Libraries/Downloads/aparapi-jni-1.4.2.jar"/>
+	<classpathentry kind="lib" path="X:/Libraries/Downloads/aparapi-2.0.0.jar"/>
+	<classpathentry kind="lib" path="X:/Libraries/Downloads/jse3dnetworklib1.2.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
