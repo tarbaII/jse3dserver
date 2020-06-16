@@ -6,6 +6,6 @@
 	<classpathentry kind="lib" path="X:/Libraries/Downloads/aparapi-jni-1.4.2.jar"/>
 	<classpathentry kind="lib" path="X:/Libraries/Downloads/aparapi-2.0.0.jar"/>
 	<classpathentry kind="lib" path="X:/Libraries/Downloads/jse3dnetworklib1.2.jar"/>
-	<classpathentry kind="lib" path="X:/Libraries/Downloads/jse3d1.8.1.jar"/>
+	<classpathentry kind="lib" path="X:/Libraries/Downloads/jse3d1.9.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
