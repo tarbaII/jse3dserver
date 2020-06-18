@@ -2,8 +2,8 @@ package com.emeryferrari.jse3dserver;
 import java.net.*;
 import java.io.*;
 import java.util.*;
-import com.emeryferrari.jse3d.*;
 import com.emeryferrari.jse3d.network.*;
+import com.emeryferrari.jse3d.obj.*;
 public class JSE3DServer {
 	private boolean stop = false;
 	private int count = 0;
