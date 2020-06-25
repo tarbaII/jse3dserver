@@ -4,6 +4,11 @@ import java.io.*;
 import java.util.*;
 import com.emeryferrari.jse3d.network.*;
 import com.emeryferrari.jse3d.obj.*;
+import java.security.*;
+import com.emeryferrari.rsacodec.*;
+import java.security.spec.*;
+import javax.crypto.*;
+import javax.crypto.spec.*;
 public class JSE3DServer {
 	private boolean stop = false;
 	private int count = 0;
@@ -151,21 +156,49 @@ public class JSE3DServer {
 		public void run() {
 			String username = null;
 			try {
-				BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 				ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
-				username = reader.readLine();
-				String version = reader.readLine();
+				ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+				KeyPair sessionPair = RSAGenerator.generateKeyPair(2048);
+				oos.writeObject(sessionPair.getPublic());
+				Object keyObj = ois.readObject();
+				byte[] pbeEnc = null;
+				if (keyObj instanceof byte[]) {
+					pbeEnc = (byte[]) keyObj;
+				} else {
+					socket.close();
+					System.out.println("[Server thread: " + Thread.currentThread().getName() + "]: Rejected incoming user " + username + " with client ID " + clientID + " as the secure handshake has failed.");
+				}
+				byte[] pbeBytes = null;
+				if (pbeEnc == null) {
+					socket.close();
+					System.out.println("[Server thread: " + Thread.currentThread().getName() + "]: Rejected incoming user " + username + " with client ID " + clientID + " as the secure handshake has failed.");
+				} else {
+					pbeBytes = RSACodec.decrypt(pbeEnc, sessionPair.getPrivate());
+				}
+				KeySpec ks = new PBEKeySpec(new String(pbeBytes, "UTF-8").toCharArray());
+				SecretKeyFactory skf = SecretKeyFactory.getInstance("PBEWithMD5AndDES");
+				SecretKey key = skf.generateSecret(ks);
+				Cipher encrypt = Cipher.getInstance("PBEWithMD5AndDES");
+				Cipher decrypt = Cipher.getInstance("PBEWithMD5AndDES");
+				encrypt.init(Cipher.ENCRYPT_MODE, key);
+				decrypt.init(Cipher.DECRYPT_MODE, key);
+				CipherOutputStream cos = new CipherOutputStream(socket.getOutputStream(), encrypt);
+				CipherInputStream cis = new CipherInputStream(socket.getInputStream(), decrypt);
+				ois = new ObjectInputStream(cis);
+				oos = new ObjectOutputStream(cos);
+				username = (String) ois.readObject();
+				String version = (String) ois.readObject();
 				if (!version.equals(JSE3DServerConst.API_VERSION)) {
 					socket.close();
 					System.out.println("[Server thread: " + Thread.currentThread().getName() + "]: Rejected incoming user " + username + " with client ID " + clientID + " as the client version is not equal to the server version.");
 				}
 				if (users.contains(username)) {
-					oos.writeObject("username-taken");
+					oos.writeObject(new Disconnect(DisconnectType.USERNAME_TAKEN));
 					oos.flush();
 					System.out.println("[Server thread: " + Thread.currentThread().getName() + "]: Rejected incoming user " + username + " with client ID " + clientID + " as the username is already taken.");
 					socket.close();
 				} else if (username.equals("")) {
-					oos.writeObject("username-invalid");
+					oos.writeObject(new Disconnect(DisconnectType.USERNAME_INVALID));
 					oos.flush();
 					System.out.println("[Server thread: " + Thread.currentThread().getName() + "]: Rejected incoming user with client ID " + clientID + " as the username is not valid.");
 					socket.close();
@@ -176,15 +209,15 @@ public class JSE3DServer {
 				oos.writeObject(scene);
 				oos.flush();
 				System.out.println("Done!");
-				Thread receiver = new Thread(new Receiver(socket, clientID, username));
+				Thread receiver = new Thread(new Receiver(socket, clientID, username, ois));
 				receiver.setName("client-receiver-" + clientID);
 				receiver.start();
-				Thread monitor = new Thread(new SceneMonitor(socket));
+				Thread monitor = new Thread(new SceneMonitor(socket, oos));
 				monitor.setName("client-monitor-" + clientID);
 				monitor.start();
 				while (!socket.isClosed()) {
 					try {
-						Thread.sleep(17);
+						Thread.sleep(100);
 					} catch (InterruptedException ex) {
 						handleException(ex);
 					}
@@ -200,13 +233,28 @@ public class JSE3DServer {
 				if (!(username == null)) {
 					users.set(clientID, null);
 				}
+				try {socket.close();} catch (IOException ex2) {}
+			} catch (ClassNotFoundException ex) {
+				handleException(ex);
+				if (!(username == null)) {
+					users.set(clientID, null);
+				}
+				try {socket.close();} catch (IOException ex2) {}
+				System.out.println("Class not found. Install required classes and restart server. Quitting...");
+				System.exit(10);
+			} catch (GeneralSecurityException ex) {
+				System.out.println("Security exception in client " + clientID + ".");
+				System.out.println("[Server thread: "+Thread.currentThread().getName() + "]: Client with client ID " + clientID + " has disconnected.");
+				try {socket.close();} catch (IOException ex2) {}
 			}
 		}
 	}
 	public class SceneMonitor implements Runnable {
 		private Socket socket;
-		public SceneMonitor(Socket socket) {
+		private ObjectOutputStream oos;
+		public SceneMonitor(Socket socket, ObjectOutputStream oos) {
 			this.socket = socket;
+			this.oos = oos;
 		}
 		public void run() {
 			boolean shouldRun1 = true;
@@ -214,12 +262,6 @@ public class JSE3DServer {
 				shouldRun1 = false;
 			}
 			if (shouldRun1) {
-				ObjectOutputStream oos = null;
-				try {
-					oos = new ObjectOutputStream(socket.getOutputStream());
-				} catch (IOException ex) {
-					handleException(ex);
-				}
 				if (oos != null) {
 					boolean shouldRun2 = true;
 					while (!stop && shouldRun2) {
@@ -229,11 +271,7 @@ public class JSE3DServer {
 							try {
 								Scene temp = scene;
 								while (temp.equals(scene)) {
-									try {
-										Thread.sleep(17);
-									} catch (InterruptedException ex) {
-										handleException(ex);
-									}
+									try {Thread.sleep(16);} catch (InterruptedException ex) {}
 								}
 								oos.writeObject(scene);
 								oos.flush();
@@ -249,9 +287,11 @@ public class JSE3DServer {
 	public class Receiver implements Runnable {
 		private Socket socket;
 		private int clientID;
-		public Receiver(Socket socket, int clientID, String username) {
+		private ObjectInputStream ois;
+		public Receiver(Socket socket, int clientID, String username, ObjectInputStream ois) {
 			this.socket = socket;
 			this.clientID = clientID;
+			this.ois = ois;
 		}
 		public void run() {
 			boolean shouldRun = true;
@@ -260,7 +300,6 @@ public class JSE3DServer {
 					shouldRun = false;
 				} else {
 					try {
-						ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
 						Object object;
 						while ((object = ois.readObject()) != null) {
 							if (object instanceof Scene) {
