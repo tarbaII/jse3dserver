@@ -1,10 +1,10 @@
 package com.emeryferrari.jse3dserver;
-import java.net.*;
 import java.io.*;
 import java.util.*;
 import com.emeryferrari.jse3d.network.*;
 import com.emeryferrari.jse3d.obj.*;
 import javax.net.ssl.*;
+import java.security.*;
 public class JSE3DServer {
 	private boolean stop = false;
 	private int count = 0;
@@ -14,6 +14,7 @@ public class JSE3DServer {
 	private ArrayList<String> users = new ArrayList<String>();
 	private JSE3DServer() {}
 	public static void main(String[] args) {
+		System.setProperty("javax.net.ssl.trustStore", "alx.store");
 		System.setProperty("javax.net.ssl.keyStore", "alx.store");
 		System.setProperty("javax.net.ssl.keyStorePassword", "jse3d_alex");
 		for (int i = 0; i < 1000; i++) {
@@ -85,12 +86,21 @@ public class JSE3DServer {
 		Thread autosave = new Thread(new Autosave());
 		autosave.setName("autosave");
 		autosave.start();
-		ServerSocket server = null;
+		SSLServerSocket server = null;
 		try {
-			SSLServerSocketFactory socketFactory = (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
-			server = socketFactory.createServerSocket(port);
+			KeyStore ks = KeyStore.getInstance("JKS");
+			ks.load(new FileInputStream("alx.store"), "jse3d_alex".toCharArray());
+			KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+			kmf.init(ks, "jse3d_alex".toCharArray());
+			TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
+			tmf.init(ks);
+			SSLContext sc = SSLContext.getInstance("TLS");
+			TrustManager[] trustManagers = tmf.getTrustManagers();
+			sc.init(kmf.getKeyManagers(), trustManagers, null);
+			SSLServerSocketFactory ssf = sc.getServerSocketFactory();
+			server = (SSLServerSocket) ssf.createServerSocket(port);
 			System.out.println("Server started.");
-		} catch (IOException ex) {
+		} catch (Exception ex) {
 			handleException(ex);
 			System.out.println("Server was not started successfully.");
 			System.exit(1);
@@ -98,9 +108,9 @@ public class JSE3DServer {
 		while (!stop) {
 			try {
 				if (server != null) {
-					Socket socket = server.accept();
-					System.out.println("Found client at " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort() + ". Client ID: " + count + ".");
-					Thread client = new Thread(new ClientHandler(socket, count));
+					SSLSocket sslSocket = (SSLSocket) server.accept();
+					System.out.println("Found client at " + sslSocket.getInetAddress().getHostAddress() + ":" + sslSocket.getPort() + ". Client ID: " + count + ".");
+					Thread client = new Thread(new ClientHandler(sslSocket, count));
 					client.setName("client-handler-" + count);
 					count++;
 					client.start();
@@ -144,11 +154,11 @@ public class JSE3DServer {
 		}
 	}
 	public class ClientHandler implements Runnable {
-		private Socket socket;
+		private SSLSocket socket;
 		private int clientID;
 		@SuppressWarnings("unused")
 		private String username;
-		public ClientHandler(Socket socket, int clientID) {
+		public ClientHandler(SSLSocket socket, int clientID) {
 			this.socket = socket;
 			this.clientID = clientID;
 		}
@@ -208,8 +218,8 @@ public class JSE3DServer {
 		}
 	}
 	public class SceneMonitor implements Runnable {
-		private Socket socket;
-		public SceneMonitor(Socket socket) {
+		private SSLSocket socket;
+		public SceneMonitor(SSLSocket socket) {
 			this.socket = socket;
 		}
 		public void run() {
@@ -251,9 +261,9 @@ public class JSE3DServer {
 		}
 	}
 	public class Receiver implements Runnable {
-		private Socket socket;
+		private SSLSocket socket;
 		private int clientID;
-		public Receiver(Socket socket, int clientID, String username) {
+		public Receiver(SSLSocket socket, int clientID, String username) {
 			this.socket = socket;
 			this.clientID = clientID;
 		}
