@@ -308,7 +308,7 @@ public class JSE3DServer {
 					handleException(ex);
 				}
 				try {
-					Thread.sleep(JSE3DServerConst.AUTOSAVE_INTERVAL);
+					Thread.sleep(JSE3DServerConst.AUTOSAVE_INTERVAL_MILLIS);
 				} catch (InterruptedException ex) {
 					handleException(ex);
 				}
