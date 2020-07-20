@@ -1,8 +1,8 @@
 package com.emeryferrari.jse3dserver;
 import java.io.*;
 import java.util.*;
-import com.emeryferrari.jse3d.network.*;
-import com.emeryferrari.jse3d.obj.*;
+import com.alyxferrari.jse3d.network.*;
+import com.alyxferrari.jse3d.obj.*;
 import javax.net.ssl.*;
 import java.security.*;
 public class JSE3DServer {
